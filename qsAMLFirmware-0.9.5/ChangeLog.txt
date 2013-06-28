@@ -1,0 +1,10 @@
+2008 05 15
+	Set MAX torque. This might not have an effect on 24v, but definitely does on 48v.
+	Added Thor code.
+
+2008 05 07
+	RC drives like PC. This means that any speed can be used, rather than the limit of around 4 MPH wheel speed for analog mode.
+	
+
+2008 02 24
+	Removed Zero Target and Position from RC initialization. This screws up the encoder calculations when released from e-stop into RC mode. Also it doesn't help anything (Sure it's convient to start your robot with 0 encoder ticks, but this doesn't guarantee that, and a properly written driver [such as our Player driver] does not assume the ticks start at 0)

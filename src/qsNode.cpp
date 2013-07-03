@@ -39,6 +39,7 @@
 #include "nav_msgs/Odometry.h"
 #include "tf/transform_datatypes.h"
 #include "tf/tf.h"
+#include "tf/transform_broadcaster.h"
 #include "LinearMath/btMatrix3x3.h"
 
 // use thread for ros::spin() 
@@ -81,6 +82,7 @@ void spinThread();
         ros::Publisher odom_pub;
         ros::Publisher stall_pub;
         ros::Subscriber twist_sub;
+        tf::TransformBroadcaster odom_broadcaster;
         void twistCallback(const geometry_msgs::Twist&);
 
         /* This stuff used to be private, moved out so it's accessible from main() */
@@ -931,8 +933,28 @@ int UpdateOdom(double pyaw) {
         pa = pyaw;
     else
         pa = NORMALIZE(pa + angle_delta);
-        
 //    printf("[UpdateOdom] pa: %f ,angle_delta: %f \n",pa,angle_delta);
+
+    // ===== Start of publish the transform over tf ======
+    // This part copy from http://www.ros.org/wiki/navigation/Tutorials/RobotSetup/Odom
+    //first, we'll publish the transform over tf
+    geometry_msgs::TransformStamped odom_trans;
+    //since all odometry is 6DOF we'll need a quaternion created from yaw
+    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(NORMALIZE(pa));
+
+    odom_trans.header.stamp = ros::Time::now();;
+    odom_trans.header.frame_id = "odom";
+    odom_trans.child_frame_id = "base_link";
+
+    odom_trans.transform.translation.x = odom_msg.pose.pose.position.x;
+    odom_trans.transform.translation.y = odom_msg.pose.pose.position.y;
+    odom_trans.transform.translation.z = 0.0;
+    odom_trans.transform.rotation = odom_quat;
+
+    //send the transform
+    odom_broadcaster.sendTransform(odom_trans);
+    // === End of publish the transform over tf =======
+
 
     // Convert orientation back to quaternion
     tf::Quaternion quat;

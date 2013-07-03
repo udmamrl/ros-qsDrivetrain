@@ -133,7 +133,7 @@ void spinThread();
         int serial_single_port;
 
         /* Safety maximums, both in meters per second */
-        double max_trans_vel, max_bias_vel;
+        double max_trans_vel, max_bias_vel,min_trans_vel;
         double  max_turn_rate; //  max turn rate , rad/s
         /* Player-specific? If this is to be converted, could get broadcast as another topic or
         pushed into the parameter server
@@ -168,6 +168,7 @@ void spinThread();
 
        int qsQuery(char *, int ,  char *, char *, int, char *, int);
         inline int CheckResponseCode(int, char *);
+        double limits(double Max,double Min, double data);
 
         /* Drivetrain state */
         nav_msgs::Odometry odom_msg;
@@ -203,15 +204,17 @@ void qsDrivetrain(ros::NodeHandle n) {
 
     n.param<int>("port_baud", serial_port_baud, 57600);
     n.param<int>("motor_max_rpm", motor_max_rpm, 4000);
-    n.param<double>("max_trans_vel", max_trans_vel, 5.0);
+    n.param<double>("max_trans_vel", max_trans_vel,  1.0);
+    n.param<double>("min_trans_vel", min_trans_vel, -0.5);
     n.param<double>("max_bias_vel", max_bias_vel, max_trans_vel*2);
-    n.param<double>("max_turn_rate", max_turn_rate, 1.57);
+    n.param<double>("max_turn_rate", max_turn_rate, 1.57);  // set default to 90 degree /sec
     n.param<int>("watchdog_hardware_time", watchdog_hardware_time, 300);
     n.param<int>("watchdog_software_time", watchdog_software_time, 2000);
     n.param<int>("tics_per_rev", tics_per_rev, 16000);
     n.param<int>("motor_gearbox_ratio", motor_gearbox_ratio, 10);
+	n.param<double>("UpdateRate"  ,cmd_UpdateRate         , 10            );
+
     motor_rpm_scale = 4000 / motor_max_rpm;
-		n.param<double>("UpdateRate"            ,cmd_UpdateRate         , 1            );
 
     // Serial port baud to standard format
     switch (serial_port_baud) {
@@ -261,8 +264,6 @@ int Setup() {
     odom_msg.pose.pose.orientation.z=0;
     odom_msg.pose.pose.orientation.w=1;
     pa=0;
-
-
 
 
     // Here you do whatever is necessary to setup the device, like open and
@@ -341,7 +342,7 @@ int OpenTerm(const char *serial_port) {
 
 
     cfmakeraw(&term);
-    serial_port_baud = B115200;
+    // serial_port_baud = B115200; // for debug
     cfsetispeed(&term, serial_port_baud);
     cfsetospeed(&term, serial_port_baud);
     term.c_cflag |= CSTOPB;
@@ -780,20 +781,30 @@ void twistCallback(const geometry_msgs::Twist& msg) {
    // TODO check max speed , max turn rate here
    //  limits(max_turn_rate, -max_turn_rate,msg.angular.z);
     /* Sanity check on data. Make sure we're not too fast */
-   double turn_rate_in;
-   turn_rate_in=msg.angular.z;
-    if (turn_rate_in > max_turn_rate)
+   double Va,Vx;
+
+   Vx=limits(max_trans_vel, min_trans_vel, msg.linear.x  );
+   Va=limits(max_turn_rate,-max_turn_rate, msg.angular.z );
+/*
+   if (turn_rate_in > max_turn_rate)
         turn_rate_in = max_turn_rate;
     else if (turn_rate_in < -max_turn_rate)
         turn_rate_in = -max_turn_rate;
+*/
 
-    SetSpeed(msg.linear.x, turn_rate_in);
+    SetSpeed(Vx,Va);
     last_command_time=GetTime();
-    trans_vel_last_sent = msg.linear.x;
-    rot_vel_last_sent   = turn_rate_in; 
-    //printf("[TwistCallback] got Vx:%f Va:%f\n",msg.linear.x, msg.angular.z);
+    trans_vel_last_sent = Vx;
+    rot_vel_last_sent   = Va;
+    //printf("[TwistCallback] got Vx:%f Va:%f\n",Vx, Va);
     return;
 }
+
+double limits(double Max,double Min, double data){
+    if 		(data > Max)        return Max;
+    else if (data < Min)        return Min;
+    else    					return data;
+	}
 
 
 /* 
@@ -1080,3 +1091,5 @@ void spinThread()
 {
     ros::spin();
 }
+
+

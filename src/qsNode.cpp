@@ -1,10 +1,12 @@
 /**
- *
- *  File: qsNode.cc
+ *  qsDrivetrain driver for QuickSilver Motor Controllers ported from
+ *  Kevin Barry's Player driver to ROS with help from Clearpath Robotics, Inc. R. Gariepy
+ *  File: qsNode.cpp
  *  Desc: ROS QuickSilver motor driver
  *
  *  Copyright (c) 2013, UDM Advanced Mobile Robotics Lab 
- *  All Rights Reserved
+ *  2013 Cheng-Lung Lee, Utayba Mohammad . University of Detroit Mercy Advanced Mobility Robotics Lab
+ *  2008 Kevin Barry. University of Detroit Mercy Advanced Mobility Robotics Lab
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -181,42 +183,34 @@ void spinThread();
  */
 void qsDrivetrain(ros::NodeHandle n) {
     std::string serial_port_left_str, serial_port_right_str;
-    // Parameters?
+    // Read Parameters
     n.getParam("wheelbase", wheelbase);
     n.param<double>("wheeldiam", wheeldiam, 0.5);
-    //n.getParam("sl",sl);
-    //n.getParam("sw",sw);
-    n.param<int>("qs_left_id",  qs_left_id,  0);
-    n.param<int>("qs_right_id", qs_right_id, 1);
-    
-//    printf("[Get parameters] qs_left_id: %d qs_right_id:%d\n",qs_left_id , qs_right_id);
-
+    n.param<int>("qs_left_id",  qs_left_id,  1);
+    n.param<int>("qs_right_id", qs_right_id, 2);
+    //    printf("[Get parameters] qs_left_id: %d qs_right_id:%d\n",qs_left_id , qs_right_id);
     n.getParam("port_left", serial_port_left_str);
-    //serial_port_left = serial_port_left_str.c_str();
-    //utayba
-    strcpy(serial_port_left,serial_port_left_str.c_str());
-   
-//    printf("[Get parameters]left serial port string %s\n",serial_port_left);
     n.getParam("port_right", serial_port_right_str);
-    //utayba 
-    //serial_port_right = serial_port_right_str.c_str();
+    // Convert to C string
+    strcpy(serial_port_left,serial_port_left_str.c_str());
     strcpy(serial_port_right,serial_port_right_str.c_str());
+    //    printf("[Get parameters]left serial port string %s\n",serial_port_left);
+    //    printf("[Get parameters]right serial port string %s\n",serial_port_right);
 
-//    printf("[Get parameters]right serial port string %s\n",serial_port_right);
-
-    n.param<int>("port_baud", serial_port_baud, 57600);
+    n.param<int>("port_baud", serial_port_baud, 115200);
     n.param<int>("motor_max_rpm", motor_max_rpm, 4000);
-    n.param<double>("max_trans_vel", max_trans_vel,  1.0);
-    n.param<double>("min_trans_vel", min_trans_vel, -0.5);
+    n.param<double>("max_trans_vel", max_trans_vel,  1.0);  // m/s
+    n.param<double>("min_trans_vel", min_trans_vel, -0.5);  // we don't drive backward, so make it small
     n.param<double>("max_bias_vel", max_bias_vel, max_trans_vel*2);
-    n.param<double>("max_turn_rate", max_turn_rate, 1.57);  // set default to 90 degree /sec
-    n.param<int>("watchdog_hardware_time", watchdog_hardware_time, 300);
+    n.param<double>("max_turn_rate", max_turn_rate, 1.57);  // rad/s , set the default to 1.57rad/s=90 degree /sec
+    n.param<int>("watchdog_hardware_time", watchdog_hardware_time, 300); // Note: the actual watchdog time is 500 ms
     n.param<int>("watchdog_software_time", watchdog_software_time, 2000);
     n.param<int>("tics_per_rev", tics_per_rev, 16000);
     n.param<int>("motor_gearbox_ratio", motor_gearbox_ratio, 10);
-	n.param<double>("UpdateRate"  ,cmd_UpdateRate         , 10            );
+	n.param<double>("UpdateRate"  ,cmd_UpdateRate  , 10 );
 
     motor_rpm_scale = 4000 / motor_max_rpm;
+    wheelcircumference  = M_PI*wheeldiam;
 
     // Serial port baud to standard format
     switch (serial_port_baud) {
@@ -242,14 +236,14 @@ void qsDrivetrain(ros::NodeHandle n) {
             break;
     }
 
-    wheelcircumference  = M_PI*wheeldiam;
-    serial_single_port = 0;
-/* the checking is not working , I just disable it
+
+    // serial_single_port = 0;
+    // the checking was not working disable during debug
     if (serial_port_right == 0)
         serial_single_port = 1;
     if (serial_port_right == 0)
-        printf("[ set it to one serial port]\n");
-*/
+        ROS_INFO("[[qsDrivetrain] set it to one serial port mode]\n");
+
     return;
 }
 
@@ -309,7 +303,6 @@ int OpenTerms() {
     if (serial_single_port) {
     printf("[Mode]one serial port mode %s\n",serial_port_left);
         fd_left = OpenTerm(serial_port_left);
-       // serial_port_left_str.c_str()
         fd_right = fd_left;
     } else {
     printf("[Mode] two serial port %s ; %s\n",serial_port_left,serial_port_right);
@@ -344,7 +337,6 @@ int OpenTerm(const char *serial_port) {
 
 
     cfmakeraw(&term);
-    // serial_port_baud = B115200; // for debug
     cfsetispeed(&term, serial_port_baud);
     cfsetospeed(&term, serial_port_baud);
     term.c_cflag |= CSTOPB;
@@ -360,7 +352,7 @@ int OpenTerm(const char *serial_port) {
 }
 
 /*
- * Write command to output? (I think)
+ * Write command to serial port
  */
 struct aiocb *AioWriteBuf(int fd, char *buf, int len) {
     struct aiocb *aiocbp;
@@ -393,7 +385,7 @@ struct aiocb *AioWriteBuf(int fd, char *buf, int len) {
 /* 
  * Read data
  * Mostly stolen from the SICKLMS200 driver.
- * The code isn't /great/, but it's what I want rather than blocking
+ * The code isn't great, but it's what I want rather than blocking
  */
 int ReadLine(int fd, char *buff, ssize_t maxlen, int timeout) {
     int len = 0;
@@ -806,7 +798,7 @@ double limits(double Max,double Min, double data){
     if 		(data > Max)        return Max;
     else if (data < Min)        return Min;
     else    					return data;
-	}
+}
 
 
 /* 
@@ -941,8 +933,8 @@ int UpdateOdom(double pyaw) {
     geometry_msgs::TransformStamped odom_trans;
     //since all odometry is 6DOF we'll need a quaternion created from yaw
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(NORMALIZE(pa));
-
-    odom_trans.header.stamp = ros::Time::now();;
+    ros::Time current_time = ros::Time::now();
+    odom_trans.header.stamp = current_time;
     odom_trans.header.frame_id = "odom";
     odom_trans.child_frame_id = "base_link";
 
@@ -993,7 +985,8 @@ int UpdateOdom(double pyaw) {
 
     /* Update header */
     odom_msg.header.frame_id = "odom";
-    odom_msg.header.stamp = ros::Time::now();
+    //odom_msg.header.stamp = ros::Time::now();
+    odom_msg.header.stamp = current_time; // use same time stamp as tf
     odom_msg.child_frame_id = "base_link";
     /* Publish! */
     odom_pub.publish(odom_msg);

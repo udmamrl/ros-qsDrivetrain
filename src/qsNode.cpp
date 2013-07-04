@@ -134,7 +134,7 @@ void spinThread();
 
         /* Safety maximums, both in meters per second */
         double max_trans_vel, max_bias_vel;
-
+        double  max_turn_rate; //  max turn rate , rad/s
         /* Player-specific? If this is to be converted, could get broadcast as another topic or
         pushed into the parameter server
         IntProperty LeftTics;
@@ -205,6 +205,7 @@ void qsDrivetrain(ros::NodeHandle n) {
     n.param<int>("motor_max_rpm", motor_max_rpm, 4000);
     n.param<double>("max_trans_vel", max_trans_vel, 5.0);
     n.param<double>("max_bias_vel", max_bias_vel, max_trans_vel*2);
+    n.param<double>("max_turn_rate", max_turn_rate, 1.57);
     n.param<int>("watchdog_hardware_time", watchdog_hardware_time, 300);
     n.param<int>("watchdog_software_time", watchdog_software_time, 2000);
     n.param<int>("tics_per_rev", tics_per_rev, 16000);
@@ -776,10 +777,20 @@ int Shutdown() {
  */
 void twistCallback(const geometry_msgs::Twist& msg) {
 
-    SetSpeed(msg.linear.x, msg.angular.z);
+   // TODO check max speed , max turn rate here
+   //  limits(max_turn_rate, -max_turn_rate,msg.angular.z);
+    /* Sanity check on data. Make sure we're not too fast */
+   double turn_rate_in;
+   turn_rate_in=msg.angular.z;
+    if (turn_rate_in > max_turn_rate)
+        turn_rate_in = max_turn_rate;
+    else if (turn_rate_in < -max_turn_rate)
+        turn_rate_in = -max_turn_rate;
+
+    SetSpeed(msg.linear.x, turn_rate_in);
     last_command_time=GetTime();
     trans_vel_last_sent = msg.linear.x;
-    rot_vel_last_sent   = msg.angular.z; 
+    rot_vel_last_sent   = turn_rate_in; 
     //printf("[TwistCallback] got Vx:%f Va:%f\n",msg.linear.x, msg.angular.z);
     return;
 }

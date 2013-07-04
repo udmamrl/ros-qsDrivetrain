@@ -504,12 +504,14 @@ int GetTics(int32_t &tics_left, int32_t &tics_right, double &tics_time) {
     status = qsQuery(cmd_left, len_left, buff_left,
                      cmd_right, len_right, buff_right, 25);
     if (status == 0) { /* No errors */
-        uint16_t tics_low;
-        uint16_t tics_high;
 
         /* Line should read as: # 01 000C   0000      0001 */
         //                        buf com  hiByte    LowByte
-        /* All numbers are hex:
+        /*
+         *                     0123456789012345678
+         * char buff_left [] ="# 01 000C A123 B456";
+		 * char buff_right []="# 02 000C C789 D012";
+         *  All numbers are hex:
            # (Ack)
            01 (ID Number of motor)
            000C (Register that was read)
@@ -519,13 +521,12 @@ int GetTics(int32_t &tics_left, int32_t &tics_right, double &tics_time) {
 
         /* The 10 comes from strlen("# 01 000C ") */
         
-        
+        /* Used during IGVC
+        uint16_t tics_low;
+        uint16_t tics_high;
        
-        /*sscanf(buff_left + 10, "%4x %4x",
-               (unsigned int *) &tics_high, (unsigned int *) &tics_low);*/
-               
-                sscanf(buff_left + 10, "%4x %4x",
-               (uint16_t *) &tics_high, (uint16_t *) &tics_low);
+        //sscanf(buff_left + 10, "%4x %4x", (unsigned int *) &tics_high, (unsigned int *) &tics_low);
+        //sscanf(buff_left + 10, "%4x %4x", (uint16_t *) &tics_high, (uint16_t *) &tics_low);
                 //printf("[GetTicks]  left high tics %x; right low tics %x\n", tics_high, tics_low);
        // tics_left = (((uint32_t) tics_high) << 16) + ((uint32_t) tics_low);
        // uint32_t tics_left_unsigned;
@@ -537,10 +538,8 @@ int GetTics(int32_t &tics_left, int32_t &tics_right, double &tics_time) {
         
         //memcpy(&tics_left + 16, &tics_low, 16);
         //printf("[GetTics] tics_left signed %x\n", tics_left);
-        /*sscanf(buff_right + 10, "%4x %4x",
-               (unsigned int *) &tics_high, (unsigned int *) &tics_low);*/
-        sscanf(buff_right + 10, "%4x %4x",
-               (uint16_t *) &tics_high, (uint16_t *) &tics_low);       
+        //sscanf(buff_right + 10, "%4x %4x", (unsigned int *) &tics_high, (unsigned int *) &tics_low);
+        //sscanf(buff_right + 10, "%4x %4x", (uint16_t *) &tics_high, (uint16_t *) &tics_low);
         //printf("[GetTicks]  right high tics %x; right low tics %x\n", tics_high, tics_low);       
        // tics_right = (((uint32_t) tics_high) << 16) + ((uint32_t) tics_low);
        // uint32_t tics_right_unsigned;
@@ -550,7 +549,13 @@ int GetTics(int32_t &tics_left, int32_t &tics_right, double &tics_time) {
         memcpy(tempBf, buff_right+10,4);
         memcpy(tempBf+4, buff_right+15,4);
         sscanf(tempBf, "%8x", &tics_right);
-        
+        */
+        int32_t tics_low;
+        int32_t tics_high;
+        sscanf(buff_left  + 10, "%4x %4x",&tics_high, &tics_low);
+        tics_left  = tics_high << 16 | tics_low ;
+        sscanf(buff_right + 10, "%4x %4x",&tics_high, &tics_low);
+        tics_right = tics_high << 16 | tics_low ;
         
         
     //printf("[GetTicks] resopnse buffer %s ; %s\n",buff_left,buff_right);
@@ -580,7 +585,7 @@ int qsQuery(char *cmd_left, int cmd_len_left, char * output_left,
                       char *cmd_right, int cmd_len_right, char * output_right,
                       int  maxlen)
 {
-    int output_len_left, output_len_right;
+    int output_len_left=0, output_len_right=0;
     struct aiocb *aiocbps[2];
     int8_t left_status = 0;
     int8_t right_status = 0;

@@ -84,7 +84,7 @@ void spinThread();
         ros::Publisher odom_pub;
         ros::Publisher stall_pub;
         ros::Subscriber twist_sub;
-        tf::TransformBroadcaster odom_broadcaster;
+        tf::TransformBroadcaster *odom_broadcaster; // use pointer here
         void twistCallback(const geometry_msgs::Twist&);
 
         /* This stuff used to be private, moved out so it's accessible from main() */
@@ -949,7 +949,7 @@ int UpdateOdom(double pyaw) {
     odom_trans.transform.rotation = odom_quat;
 
     //send the transform
-    odom_broadcaster.sendTransform(odom_trans);
+    (*odom_broadcaster).sendTransform(odom_trans);
     // === End of publish the transform over tf =======
 
 
@@ -1018,6 +1018,7 @@ int main (int argc, char **argv) {
     ros::NodeHandle n=ros::NodeHandle("~");
     //ros::NodeHandle node_handle_private = ros::NodeHandle("~");
     // Create drivetrain object
+    odom_broadcaster=new tf::TransformBroadcaster();
     qsDrivetrain(n);
    // Set up driver
     Setup();

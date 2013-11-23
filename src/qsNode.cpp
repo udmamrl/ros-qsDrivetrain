@@ -132,6 +132,10 @@ void spinThread();
         //utayba
         char serial_port_left[100], serial_port_right[100];
         
+        // odom covariance
+        double pos_cov_stop, rot_cov_stop , pos_cov_moving, rot_cov_moving, stop_moveing_theshold;
+        
+        
         /* tristate mode for single serial port */
         /* This mode is not recommended (Latency!) */
         int serial_single_port;
@@ -208,6 +212,16 @@ void qsDrivetrain(ros::NodeHandle n) {
     n.param<int>("tics_per_rev", tics_per_rev, 16000);
     n.param<int>("motor_gearbox_ratio", motor_gearbox_ratio, 10);
 	n.param<double>("UpdateRate"  ,cmd_UpdateRate  , 10 );
+    
+    //odom_msg covariance : pos_cov_stop, rot_cov_stop , pos_cov_moving, rot_cov_moving
+	n.param<double>("pos_cov_stop"    ,pos_cov_stop    , 1e-3 );
+	n.param<double>("rot_cov_stop"    ,rot_cov_stop    , 1e-3 );
+	n.param<double>("pos_cov_moving"  ,pos_cov_moving  , 0.1 );
+	n.param<double>("rot_cov_moving"  ,rot_cov_moving  , 0.1 );
+	n.param<double>("stop_moveing_theshold"  ,stop_moveing_theshold  , 1e-2 );
+
+
+
 
     motor_rpm_scale = 4000 / motor_max_rpm;
     wheelcircumference  = M_PI*wheeldiam;
@@ -979,12 +993,22 @@ int UpdateOdom(double pyaw) {
      * Note: Check Husky dead-reckoning code for a few simple cases
      * which should be taken care of separately (ex. both motors stopped, same speed)
      */
-    boost::array<double,36> covar = {{1e-3, 0, 0, 0, 0, 0,
-                                      0, 1e-3, 0, 0, 0, 0,
-                                      0, 0, 1e-3, 0, 0, 0,
-                                      0, 0, 0, 1e-6, 0, 0,
-                                      0, 0, 0, 0, 1e-6, 0,
-                                      0, 0, 0, 0, 0, 1e-6}};
+    boost::array<double,36> covar = {{pos_cov_stop , 0, 0, 0, 0, 0,
+                                      0, pos_cov_stop , 0, 0, 0, 0,
+                                      0, 0, pos_cov_stop , 0, 0, 0,
+                                      0, 0, 0, rot_cov_stop , 0, 0,
+                                      0, 0, 0, 0, rot_cov_stop, 0,
+                                      0, 0, 0, 0, 0, rot_cov_stop}};
+                                      
+    if((abs(odom_msg.twist.twist.linear.x)>stop_moveing_theshold) || (abs(odom_msg.twist.twist.angular.z)>stop_moveing_theshold))  {
+    // robot is moving
+                covar[0] = pos_cov_moving;
+                covar[7] = pos_cov_moving;
+                covar[14] = pos_cov_moving;
+                covar[21] = rot_cov_moving;
+                covar[28] = rot_cov_moving;
+                covar[35] = rot_cov_moving;    }
+                
     odom_msg.pose.covariance = covar;
     odom_msg.twist.covariance = covar;
 

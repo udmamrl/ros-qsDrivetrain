@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- Basic driver node launch -->
+<launch>
+    <node pkg="ros-qsDrivetrain" type="qsNode" name="ThorPro_Drivetrain" output="screen">
+        <param name="wheelbase"           value="0.635"/>
+        <param name="wheeldiam"           value="0.3556"/>
+        <param name="qs_left_id"          value="1"/>
+        <param name="qs_right_id"         value="2"/>
+	<param name="motor_gearbox_ratio" value="10"/>
+	<param name="tics_per_rev"        value="4000" />
+ 	<param name="port_left"           value="/dev/sensors/ftdi_THORLEFT"/>
+ 	<param name="port_right"          value="/dev/sensors/ftdi_THORRIGH"/>
+ 	<param name="port_baud"           value="115200"/>
+ 	<param name="UpdateRate"          value="10"/>
+ 	<param name="motor_max_rpm"       value="4000"/>
+
+	<param name="max_trans_vel"       value="2.23"/>
+ 
+    </node>
+</launch>

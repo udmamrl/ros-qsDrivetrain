@@ -43,7 +43,7 @@
 #include "tf/tf.h"
 #include "tf/transform_broadcaster.h"
 //#include "LinearMath/btMatrix3x3.h"
-#include <bullet/LinearMath/btMatrix3x3.h>
+#include <tf/LinearMath/Matrix3x3.h>
 // use thread for ros::spin() 
 #include <boost/thread.hpp>
 

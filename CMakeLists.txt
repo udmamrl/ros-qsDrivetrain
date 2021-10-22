@@ -118,6 +118,7 @@ add_executable(qsNode src/qsNode.cpp)
 ## Specify libraries to link a library or executable target against
  target_link_libraries( qsNode
    ${catkin_LIBRARIES} 
+   rt
  )
 
 #############

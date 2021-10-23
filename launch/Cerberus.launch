@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!-- Basic driver node launch -->
 <launch>
-    <node pkg="ros-qsDrivetrain" type="qsNode" name="qsNode" output="screen">
+    <node pkg="ros-qsdrivetrain" type="qsNode" name="qsNode" output="screen">
         <param name="wheelbase"           value="0.879"/>
         <param name="wheeldiam"           value="0.4225"/>
         <param name="qs_left_id"          value="1"/>

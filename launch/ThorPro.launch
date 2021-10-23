@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!-- Basic driver node launch -->
 <launch>
-    <node pkg="ros-qsDrivetrain" type="qsNode" name="ThorPro_Drivetrain" output="screen">
+    <node pkg="ros-qsdrivetrain" type="qsNode" name="ThorPro_Drivetrain" output="screen">
         <param name="wheelbase"           value="0.635"/>
         <param name="wheeldiam"           value="0.3556"/>
         <param name="qs_left_id"          value="1"/>
